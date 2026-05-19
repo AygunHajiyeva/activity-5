@@ -42,15 +42,5 @@ py simulator.py
 
 Or use `.\run.ps1` to start API + UI on Windows.
 
-## Demo accounts
 
-| User     | Password      | Access                                      |
-|----------|---------------|---------------------------------------------|
-| admin    | admin123      | Full access including Settings & device CRUD |
-| operator | operator123   | Dashboard, devices (read-only), alerts, export |
 
-API docs: http://127.0.0.1:8000/docs
-
-## Project stages
-
-- Stages 1–4: **done** (Docker container not required)
