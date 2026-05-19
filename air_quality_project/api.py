@@ -221,6 +221,35 @@ def list_rooms(user: Annotated[dict, Depends(get_current_user)]):
     return [dict(r) for r in rows]
 
 
+@app.post("/rooms", status_code=201)
+def create_room(name: dict, user: Annotated[dict, Depends(require_admin)]):
+    room_name = name.get("name", "").strip()
+    if not room_name:
+        raise HTTPException(status_code=400, detail="Room name is required")
+    with closing(get_connection()) as conn:
+        cur = conn.execute("INSERT INTO rooms (name) VALUES (?)", (room_name,))
+        conn.commit()
+        return {"room_id": cur.lastrowid, "name": room_name}
+
+
+@app.delete("/rooms/{room_id}")
+def delete_room(room_id: int, user: Annotated[dict, Depends(require_admin)]):
+    with closing(get_connection()) as conn:
+        dev = conn.execute(
+            "SELECT COUNT(*) FROM devices WHERE room_id = ?", (room_id,)
+        ).fetchone()[0]
+        if dev > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete room: {dev} device(s) still assigned",
+            )
+        cur = conn.execute("DELETE FROM rooms WHERE room_id = ?", (room_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Room not found")
+    return {"message": "Room deleted"}
+
+
 @app.get("/devices")
 def list_devices(
     user: Annotated[dict, Depends(get_current_user)],
