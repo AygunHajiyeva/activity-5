@@ -1,0 +1,10 @@
+air_quality_project/.venv/
+air_quality_project/__pycache__/
+air_quality_project/*.pyc
+air_quality_project/air_quality.db
+air_quality_project/flet*.log
+air_quality_project/uvicorn*.log
+air_quality_project/flet_*.log
+air_quality_project/flet_v2_*.log
+air_quality_project/*.out.log
+air_quality_project/*.err.log
