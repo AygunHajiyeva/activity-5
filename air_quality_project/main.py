@@ -216,12 +216,7 @@ def main(page: ft.Page):
                         on_click=do_login,
                         width=200,
                     ),
-                    ft.Container(height=4),
-                    ft.TextButton(
-                        "Cannot connect?",
-                        on_click=lambda e: show_snack(API_START_HINT, success=False),
-                        style=ft.ButtonStyle(color=ft.Colors.GREY_500, text_style=ft.TextStyle(size=11)),
-                    ),
+
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=0,
