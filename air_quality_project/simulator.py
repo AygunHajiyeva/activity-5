@@ -7,8 +7,8 @@ import requests
 
 from config import API_BASE_URL
 
-INTERVAL_MIN = 5
-INTERVAL_MAX = 10
+INTERVAL_MIN = 4
+INTERVAL_MAX = 7
 
 
 def login() -> str:
@@ -45,8 +45,9 @@ def main() -> None:
 
     while True:
         device_id = random.choice(device_ids)
-        pm25 = round(random.uniform(8, 60), 1)
-        co2 = round(random.uniform(450, 1300), 0)
+        # Bias toward threshold-exceeding values so alerts fire reliably
+        pm25 = round(random.uniform(36, 72), 1)   # always > 35 threshold
+        co2 = round(random.uniform(1010, 1500), 0)  # always > 1000 threshold
         payload = {
             "device_id": device_id,
             "pm25": pm25,

@@ -1,6 +1,7 @@
 import csv
 import io
 import sqlite3
+from pathlib import Path
 from contextlib import closing
 from typing import Annotated
 
@@ -186,9 +187,105 @@ def _check_thresholds(
         )
 
 
+def _sync_alerts_for_device_thresholds(
+    conn: sqlite3.Connection,
+    device_id: str,
+    pm25_threshold: float,
+    co2_threshold: float,
+) -> dict[str, int]:
+    removed_pm25 = conn.execute(
+        """
+        DELETE FROM alerts
+        WHERE device_id = ?
+          AND alert_type = 'pm25'
+          AND value <= ?
+        """,
+        (device_id, pm25_threshold),
+    ).rowcount
+    removed_co2 = conn.execute(
+        """
+        DELETE FROM alerts
+        WHERE device_id = ?
+          AND alert_type = 'co2'
+          AND value <= ?
+        """,
+        (device_id, co2_threshold),
+    ).rowcount
+
+    updated_pm25 = conn.execute(
+        """
+        UPDATE alerts
+        SET threshold = ?
+        WHERE device_id = ?
+          AND alert_type = 'pm25'
+        """,
+        (pm25_threshold, device_id),
+    ).rowcount
+    updated_co2 = conn.execute(
+        """
+        UPDATE alerts
+        SET threshold = ?
+        WHERE device_id = ?
+          AND alert_type = 'co2'
+        """,
+        (co2_threshold, device_id),
+    ).rowcount
+
+    created_pm25 = conn.execute(
+        """
+        INSERT INTO alerts (device_id, reading_id, alert_type, value, threshold, timestamp)
+        SELECT r.device_id, r.reading_id, 'pm25', r.pm25, ?, r.timestamp
+        FROM readings r
+        WHERE r.device_id = ?
+          AND r.pm25 > ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM alerts a
+              WHERE a.reading_id = r.reading_id
+                AND a.alert_type = 'pm25'
+          )
+        """,
+        (pm25_threshold, device_id, pm25_threshold),
+    ).rowcount
+    created_co2 = conn.execute(
+        """
+        INSERT INTO alerts (device_id, reading_id, alert_type, value, threshold, timestamp)
+        SELECT r.device_id, r.reading_id, 'co2', r.co2, ?, r.timestamp
+        FROM readings r
+        WHERE r.device_id = ?
+          AND r.co2 > ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM alerts a
+              WHERE a.reading_id = r.reading_id
+                AND a.alert_type = 'co2'
+          )
+        """,
+        (co2_threshold, device_id, co2_threshold),
+    ).rowcount
+
+    return {
+        "created": created_pm25 + created_co2,
+        "updated": updated_pm25 + updated_co2,
+        "removed": removed_pm25 + removed_co2,
+    }
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    db_path = get_connection().database
+    db_size = "—"
+    try:
+        sz = Path(db_path).stat().st_size
+        if sz < 1024:
+            db_size = f"{sz} B"
+        elif sz < 1024 * 1024:
+            db_size = f"{sz // 1024} KB"
+        else:
+            db_size = f"{sz / (1024 * 1024):.1f} MB"
+    except Exception:  # noqa: BLE001
+        pass
+    return {"status": "ok", "database_size": db_size}
 
 
 @app.post("/auth/login")
@@ -350,26 +447,29 @@ def update_device(
             "SELECT room_id FROM rooms WHERE room_id = ?", (device.room_id,)
         ).fetchone():
             raise HTTPException(status_code=400, detail=f"Room {device.room_id} not found")
-        try:
-            conn.execute(
-                """
-                UPDATE devices
-                SET device_id = ?, model = ?, status = ?, room_id = ?
-                WHERE id = ?
-                """,
-                (
-                    device.device_id,
-                    device.model,
-                    device.status,
-                    device.room_id,
-                    record_id,
-                ),
-            )
-            conn.commit()
-        except sqlite3.IntegrityError:
+        # Check uniqueness excluding the current device itself
+        if conn.execute(
+            "SELECT id FROM devices WHERE device_id = ? AND id != ?",
+            (device.device_id, record_id),
+        ).fetchone():
             raise HTTPException(
                 status_code=400, detail=f"Device '{device.device_id}' already exists"
             )
+        conn.execute(
+            """
+            UPDATE devices
+            SET device_id = ?, model = ?, status = ?, room_id = ?
+            WHERE id = ?
+            """,
+            (
+                device.device_id,
+                device.model,
+                device.status,
+                device.room_id,
+                record_id,
+            ),
+        )
+        conn.commit()
         return {"id": record_id, **device.model_dump()}
 
 
@@ -380,17 +480,31 @@ def update_thresholds(
     user: Annotated[dict, Depends(require_admin)],
 ):
     with closing(get_connection()) as conn:
-        cur = conn.execute(
+        device = conn.execute(
+            "SELECT device_id FROM devices WHERE id = ?", (record_id,)
+        ).fetchone()
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        conn.execute(
             """
             UPDATE devices SET pm25_threshold = ?, co2_threshold = ?
             WHERE id = ?
             """,
             (body.pm25_threshold, body.co2_threshold, record_id),
         )
+        alert_changes = _sync_alerts_for_device_thresholds(
+            conn,
+            device["device_id"],
+            body.pm25_threshold,
+            body.co2_threshold,
+        )
         conn.commit()
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Device not found")
-    return {"message": "Thresholds updated", **body.model_dump()}
+    return {
+        "message": "Thresholds updated",
+        "alert_changes": alert_changes,
+        **body.model_dump(),
+    }
 
 
 @app.delete("/devices/{record_id}")

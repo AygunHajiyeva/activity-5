@@ -1,4 +1,4 @@
-"""Air Quality Monitor — Flet desktop UI (login, dashboard, devices, alerts, settings)."""
+"""Air Quality Monitor - Flet desktop UI (login, dashboard, devices, alerts, settings)."""
 
 import asyncio
 import math
@@ -19,10 +19,31 @@ API_START_HINT = (
 
 
 def main(page: ft.Page):
-    page.title = "Air Quality Monitor"
+    page.title = "FreshX — Clean Air, Clear Mind"
     page.padding = 0
     page.theme_mode = ft.ThemeMode.DARK
-    page.bgcolor = ft.Colors.SURFACE
+    page.bgcolor = "#0B1220"
+    page.theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary="#2DD4BF",
+            secondary="#38BDF8",
+            surface="#0B1220",
+        ),
+    )
+
+    C = type("C", (), {})()
+    C.BG = "#0B1220"
+    C.BG2 = "#121A2B"
+    C.NAV = "#111827"
+    C.FOOTER = "#0A101C"
+    C.CARD = "#1B2538"
+    C.ACCENT = "#2DD4BF"
+    C.ACCENT2 = "#38BDF8"
+    C.TEXT = "#F3F4F6"
+    C.TEXT2 = "#9CA3AF"
+    C.GREEN = "#22C55E"
+    C.WARN = "#F59E0B"
+    C.RED = "#EF4444"
 
     session: dict = {
         "token": None,
@@ -103,51 +124,130 @@ def main(page: ft.Page):
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     spacing=8,
                 ),
-                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                bgcolor=C.CARD,
                 border_radius=12,
                 padding=30,
-                width=400,
             )
         subset = points[-40:]
         max_pm = max(p["pm25"] for p in subset) or 1
-        bars = [
-            ft.Container(
-                width=10,
-                height=max(4, int(80 * p["pm25"] / max_pm)),
-                bgcolor=_bar_color(p["pm25"]),
-                tooltip=f"PM2.5: {p['pm25']}  CO₂: {p['co2']}",
-                border_radius=ft.BorderRadius.only(top_left=2, top_right=2),
-            )
-            for p in subset
-        ]
+        max_co2 = max(p["co2"] for p in subset) or 1
+        PM_H = 110
+        CO2_H = 75
+
+        pm_bars = ft.Row(
+            controls=[
+                ft.Column(
+                    controls=[
+                        ft.Container(height=PM_H - max(4, int(p["pm25"] / max_pm * PM_H))),
+                        ft.Container(
+                            width=7,
+                            height=max(4, int(p["pm25"] / max_pm * PM_H)),
+                            bgcolor=_bar_color(p["pm25"]),
+                            border_radius=ft.BorderRadius(top_left=2, top_right=2, bottom_left=0, bottom_right=0),
+                        ),
+                    ],
+                    spacing=0,
+                    height=PM_H,
+                )
+                for p in subset
+            ],
+            spacing=2,
+            tight=True,
+        )
+
+        co2_bars = ft.Row(
+            controls=[
+                ft.Column(
+                    controls=[
+                        ft.Container(height=CO2_H - max(3, int(p["co2"] / max_co2 * CO2_H))),
+                        ft.Container(
+                            width=7,
+                            height=max(3, int(p["co2"] / max_co2 * CO2_H)),
+                            bgcolor=ft.Colors.with_opacity(0.85, C.ACCENT2),
+                            border_radius=ft.BorderRadius(top_left=2, top_right=2, bottom_left=0, bottom_right=0),
+                        ),
+                    ],
+                    spacing=0,
+                    height=CO2_H,
+                )
+                for p in subset
+            ],
+            spacing=2,
+            tight=True,
+        )
+
         legend = ft.Row(
             [
                 ft.Container(width=10, height=10, bgcolor=ft.Colors.GREEN_400, border_radius=2),
-                ft.Text("Good", size=11, color=ft.Colors.ON_SURFACE_VARIANT),
+                ft.Text("Good (<=12)", size=11, color=C.TEXT2),
                 ft.Container(width=10, height=10, bgcolor=ft.Colors.AMBER_400, border_radius=2),
-                ft.Text("Moderate", size=11, color=ft.Colors.ON_SURFACE_VARIANT),
+                ft.Text("Moderate (<=35)", size=11, color=C.TEXT2),
                 ft.Container(width=10, height=10, bgcolor=ft.Colors.RED_400, border_radius=2),
-                ft.Text("High", size=11, color=ft.Colors.ON_SURFACE_VARIANT),
+                ft.Text("High (>35)", size=11, color=C.TEXT2),
             ],
             spacing=6,
         )
         return ft.Column(
             [
-                ft.Text("PM2.5 trend — last 24 h", weight=ft.FontWeight.BOLD),
                 ft.Row(
-                    bars,
-                    spacing=3,
-                    scroll=ft.ScrollMode.AUTO,
-                    vertical_alignment=ft.CrossAxisAlignment.END,
+                    [
+                        ft.Text("PM2.5 trend - last 24 h", weight=ft.FontWeight.BOLD, color=C.TEXT),
+                        ft.Container(expand=True),
+                        ft.Text(f"{len(subset)} readings", size=11, color=C.TEXT2),
+                    ],
+                ),
+                ft.Container(
+                    content=ft.Column([pm_bars], scroll=ft.ScrollMode.AUTO),
+                    height=PM_H + 12,
+                    bgcolor=ft.Colors.with_opacity(0.04, ft.Colors.WHITE),
+                    border_radius=8,
+                    padding=ft.Padding.only(left=4, right=4, top=8, bottom=4),
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                 ),
                 legend,
+                ft.Container(height=4),
+                ft.Row(
+                    [
+                        ft.Text("CO2 trend - last 24 h", weight=ft.FontWeight.BOLD, color=C.TEXT),
+                        ft.Container(expand=True),
+                        ft.Container(width=10, height=10, bgcolor=C.ACCENT2, border_radius=2),
+                        ft.Text("ppm", size=11, color=C.TEXT2),
+                    ],
+                ),
+                ft.Container(
+                    content=ft.Column([co2_bars], scroll=ft.ScrollMode.AUTO),
+                    height=CO2_H + 12,
+                    bgcolor=ft.Colors.with_opacity(0.04, ft.Colors.WHITE),
+                    border_radius=8,
+                    padding=ft.Padding.only(left=4, right=4, top=8, bottom=4),
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                ),
             ],
             spacing=8,
         )
 
-    # ── Login ──────────────────────────────────────────────────────────
+    # -- Login --
     login_user = ft.TextField(label="Username", autofocus=True)
     login_pass = ft.TextField(label="Password", password=True, can_reveal_password=True)
+    remember_me = ft.Checkbox(label="Remember me", value=False)
+
+    async def _get_pref(key: str):
+        try:
+            return await ft.SharedPreferences().get(key)
+        except Exception:  # noqa: BLE001
+            return None
+
+    async def _set_pref(key: str, value: str):
+        try:
+            await ft.SharedPreferences().set(key, value)
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def _del_pref(key: str):
+        try:
+            await ft.SharedPreferences().remove(key)
+        except Exception:  # noqa: BLE001
+            pass
 
     def do_login(e=None) -> None:
         if not (login_user.value or "").strip():
@@ -166,7 +266,7 @@ def main(page: ft.Page):
                 timeout=5,
             )
         except RequestsConnectionError:
-            show_snack("Cannot reach API — start uvicorn first", success=False)
+            show_snack("Cannot reach API - start uvicorn first", success=False)
             return
         if resp.status_code != 200:
             detail = resp.json().get("detail", resp.text) if resp.content else resp.text
@@ -176,6 +276,10 @@ def main(page: ft.Page):
         session["token"] = data["token"]
         session["role"] = data["role"]
         session["username"] = data["username"]
+        if remember_me.value:
+            page.run_task(_set_pref, "remembered_user", login_user.value.strip())
+        else:
+            page.run_task(_del_pref, "remembered_user")
         show_snack(f"Welcome, {data['username']} ({data['role']})")
         show_main_shell()
 
@@ -187,7 +291,24 @@ def main(page: ft.Page):
         page.navigation_bar = None
         page.bottom_appbar = None
         page.add(login_view)
+        page.run_task(_restore_remembered_user)
         page.update()
+
+    async def _restore_remembered_user():
+        val = await _get_pref("remembered_user")
+        if val:
+            login_user.value = val
+            remember_me.value = True
+            login_user.update()
+
+    def greeting_time() -> str:
+        import datetime
+        h = datetime.datetime.now().hour
+        if h < 12:
+            return "Good morning"
+        if h < 18:
+            return "Good afternoon"
+        return "Good evening"
 
     login_view = ft.Container(
         content=ft.Container(
@@ -199,59 +320,115 @@ def main(page: ft.Page):
                         bgcolor=ft.Colors.BLUE_900,
                         content=ft.Icon(ft.Icons.AIR, size=32, color=ft.Colors.BLUE_200),
                     ),
-                    ft.Text("Air Quality Monitor", size=26, weight=ft.FontWeight.BOLD),
+                    ft.Text("FreshX", size=28, weight=ft.FontWeight.BOLD),
+                    ft.Text(
+                        "Clean Air, Clear Mind",
+                        color=C.ACCENT,
+                        size=13,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    ft.Container(height=2),
                     ft.Text(
                         "Sign in to continue",
                         color=ft.Colors.ON_SURFACE_VARIANT,
-                        size=13,
+                        size=12,
                     ),
-                    ft.Container(height=24),
+                    ft.Container(height=20),
                     login_user,
-                    ft.Container(height=16),
+                    ft.Container(height=12),
                     login_pass,
-                    ft.Container(height=16),
+                    ft.Container(height=4),
+                    remember_me,
+                    ft.Container(height=10),
                     ft.FilledButton(
                         "Sign In",
                         icon=ft.Icons.LOGIN,
                         on_click=do_login,
                         width=200,
                     ),
-
+                    ft.Container(height=12),
+                    ft.Row(
+                        [
+                            ft.TextButton(
+                                "Forgot password?",
+                                on_click=lambda e: show_snack("Contact admin to reset your password", success=False),
+                                style=ft.ButtonStyle(color=ft.Colors.GREY_400, text_style=ft.TextStyle(size=12)),
+                            ),
+                            ft.Text("|", size=12, color=ft.Colors.GREY_600),
+                            ft.TextButton(
+                                "Create account",
+                                on_click=lambda e: show_snack("Account creation is managed by the administrator", success=False),
+                                style=ft.ButtonStyle(color=ft.Colors.GREY_400, text_style=ft.TextStyle(size=12)),
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=6,
+                    ),
+                    ft.Container(height=4),
+                    ft.Text("v1.0.0", size=10, color=ft.Colors.GREY_600),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=0,
                 width=340,
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
-            padding=ft.Padding.all(48),
+            padding=ft.Padding.all(40),
             border_radius=20,
             bgcolor=ft.Colors.SURFACE_CONTAINER,
             width=460,
-            height=460,
-            alignment=ft.Alignment.CENTER,
+            height=520,
+            alignment=ft.Alignment(0, 0),
         ),
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.Alignment(0, 0),
         expand=True,
     )
 
-    # ── Dashboard ──────────────────────────────────────────────────────
-    card_devices = ft.Text("—", size=28, weight=ft.FontWeight.BOLD)
-    card_pm25 = ft.Text("—", size=28, weight=ft.FontWeight.BOLD)
-    card_co2 = ft.Text("—", size=28, weight=ft.FontWeight.BOLD)
-    card_alerts = ft.Text("—", size=28, weight=ft.FontWeight.BOLD)
+    # -- Dashboard --
+    def export_csv(e) -> None:
+        try:
+            resp = requests.get(
+                f"{API_BASE_URL}/export/readings",
+                headers=headers(),
+                timeout=30,
+            )
+            resp.raise_for_status()
+            out = Path.home() / "Downloads" / "readings_export.csv"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(resp.content)
+            show_snack(f"Saved to {out}")
+        except Exception as ex:  # noqa: BLE001
+            show_snack(f"Export failed: {ex}", success=False)
+
+    dash_greeting = ft.Text(size=20, weight=ft.FontWeight.BOLD, color=C.TEXT)
+    dash_last_updated = ft.Text("", size=11, color=C.TEXT2)
+    dash_status_dot = ft.Container(width=8, height=8, border_radius=4, bgcolor=C.GREEN)
+    card_devices = ft.Text("--", size=28, weight=ft.FontWeight.BOLD, color=C.ACCENT2)
+    card_pm25 = ft.Text("--", size=24, weight=ft.FontWeight.BOLD, color=C.GREEN)
+    card_co2 = ft.Text("--", size=24, weight=ft.FontWeight.BOLD, color=C.WARN)
+    card_alerts = ft.Text("--", size=28, weight=ft.FontWeight.BOLD, color=C.RED)
     chart_area = ft.Container()
     readings_table = ft.DataTable(
         columns=[
-            ft.DataColumn(ft.Text("ID")),
-            ft.DataColumn(ft.Text("Device")),
-            ft.DataColumn(ft.Text("PM2.5")),
-            ft.DataColumn(ft.Text("CO2")),
-            ft.DataColumn(ft.Text("Time")),
+            ft.DataColumn(ft.Text("ID", color=C.TEXT2, weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("Device", color=C.TEXT2, weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("PM2.5", color=C.TEXT2, weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("CO2", color=C.TEXT2, weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("Time", color=C.TEXT2, weight=ft.FontWeight.BOLD)),
         ],
         rows=[],
+        border=ft.Border.all(0, ft.Colors.TRANSPARENT),
+        heading_row_color={ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.06, C.ACCENT2)},
+        data_row_color={ft.ControlState.DEFAULT: ft.Colors.TRANSPARENT},
+        divider_thickness=0.5,
     )
 
     def load_dashboard() -> None:
+        import datetime
+        uname = session.get("username", "User")
+        dash_greeting.value = f"{greeting_time()}, {uname}!"
+        dash_last_updated.value = f"Last updated: {datetime.datetime.now():%H:%M:%S}"
+        ok, _ = check_api()
+        dash_status_dot.bgcolor = C.GREEN if ok else C.RED
         try:
             s = requests.get(
                 f"{API_BASE_URL}/dashboard/summary", headers=headers(), timeout=5
@@ -274,7 +451,7 @@ def main(page: ft.Page):
                         [
                             ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=ft.Colors.GREY_400),
                             ft.Text(
-                                "No data yet — run seed.py to populate the database",
+                                "No data yet - run seed.py to populate the database",
                                 size=12, color=ft.Colors.GREY_400,
                             ),
                         ],
@@ -302,11 +479,11 @@ def main(page: ft.Page):
             readings_table.rows = [
                 ft.DataRow(
                     cells=[
-                        ft.DataCell(ft.Text(str(x["reading_id"]))),
-                        ft.DataCell(ft.Text(x["device_id"])),
-                        ft.DataCell(ft.Text(str(x["pm25"]))),
-                        ft.DataCell(ft.Text(str(x["co2"]))),
-                        ft.DataCell(ft.Text(x["timestamp"] or "")),
+                        ft.DataCell(ft.Text(str(x["reading_id"]), color=C.TEXT2, size=12)),
+                        ft.DataCell(ft.Text(x["device_id"], color=C.TEXT, weight=ft.FontWeight.W_500)),
+                        ft.DataCell(ft.Text(str(x["pm25"]), color=C.GREEN)),
+                        ft.DataCell(ft.Text(str(x["co2"]), color=C.WARN)),
+                        ft.DataCell(ft.Text(x["timestamp"] or "", color=C.TEXT2, size=11)),
                     ]
                 )
                 for x in items
@@ -315,24 +492,27 @@ def main(page: ft.Page):
             show_snack(f"Dashboard error: {ex}", success=False)
         page.update()
 
-    def summary_card(title: str, value_ctrl: ft.Text, color, icon) -> ft.Container:
+    def summary_card(title: str, value_ctrl: ft.Text, icon, accent: str, unit: str = "", bg: str | None = None) -> ft.Container:
+        unit_label = ft.Text(unit, size=10, color=accent) if unit else ft.Container(width=0, height=0)
         return ft.Container(
             content=ft.Column(
                 [
                     ft.Row(
-                        [
-                            ft.Icon(icon, size=14, color=ft.Colors.WHITE70),
-                            ft.Text(title, size=12, color=ft.Colors.WHITE70),
-                        ],
+                        [ft.Icon(icon, size=14, color=accent), ft.Text(title, size=12, color=C.TEXT2)],
                         spacing=4,
                     ),
-                    value_ctrl,
+                    ft.Row(
+                        [value_ctrl, unit_label],
+                        spacing=4,
+                        vertical_alignment=ft.CrossAxisAlignment.END,
+                    ),
                 ],
-                spacing=6,
+                spacing=8,
             ),
             padding=16,
-            bgcolor=color,
+            bgcolor=bg if bg else C.CARD,
             border_radius=12,
+            border=ft.Border(left=ft.BorderSide(3, accent)),
             expand=True,
         )
 
@@ -341,10 +521,47 @@ def main(page: ft.Page):
         [
             ft.Row(
                 [
-                    summary_card("Active devices", card_devices, ft.Colors.BLUE_800, ft.Icons.SENSORS),
-                    summary_card("Avg PM2.5", card_pm25, ft.Colors.GREEN_800, ft.Icons.AIR),
-                    summary_card("Avg CO₂", card_co2, ft.Colors.ORANGE_800, ft.Icons.CLOUD),
-                    summary_card("Open alerts", card_alerts, ft.Colors.RED_800, ft.Icons.WARNING_AMBER),
+                    ft.Column(
+                        [dash_greeting, dash_last_updated],
+                        spacing=2,
+                    ),
+                    ft.Container(expand=True),
+                    ft.Row(
+                        [
+                            dash_status_dot,
+                            ft.Text("API", size=11, color=C.TEXT2),
+                        ],
+                        spacing=4,
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+            ft.Container(height=4),
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Text("Check Air Quality in Realtime", size=18, weight=ft.FontWeight.BOLD, color=C.ACCENT2),
+                        ft.Container(width=8),
+                        ft.Container(
+                            content=ft.Text("LIVE", size=9, weight=ft.FontWeight.BOLD, color="#FFFFFF"),
+                            padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                            bgcolor=C.RED,
+                            border_radius=4,
+                        ),
+                    ],
+                    spacing=0,
+                ),
+                padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+                border_radius=8,
+                bgcolor=ft.Colors.with_opacity(0.1, C.ACCENT2),
+            ),
+            ft.Container(height=12),
+            ft.Row(
+                [
+                    summary_card("Active devices", card_devices, ft.Icons.SENSORS, C.ACCENT2, bg=ft.Colors.with_opacity(0.14, C.ACCENT2)),
+                    summary_card("Avg PM2.5 (24h)", card_pm25, ft.Icons.AIR, C.GREEN, "ug/m3", bg=ft.Colors.with_opacity(0.14, C.GREEN)),
+                    summary_card("Avg CO2 (24h)", card_co2, ft.Icons.CLOUD, C.WARN, "ppm", bg=ft.Colors.with_opacity(0.14, C.WARN)),
+                    summary_card("Open alerts", card_alerts, ft.Icons.WARNING_AMBER, C.RED, bg=ft.Colors.with_opacity(0.14, C.RED)),
                 ],
                 spacing=10,
             ),
@@ -352,10 +569,33 @@ def main(page: ft.Page):
             ft.Container(height=12),
             chart_area,
             ft.Container(height=18),
-            ft.Text("Recent readings", weight=ft.FontWeight.BOLD),
-            ft.Column([readings_table], scroll=ft.ScrollMode.AUTO, expand=True),
+            ft.Row(
+                [
+                    ft.Text("Recent readings", weight=ft.FontWeight.BOLD, color=C.TEXT),
+                    ft.Container(expand=True),
+                    ft.FilledTonalButton(
+                        "Export CSV",
+                        icon=ft.Icons.DOWNLOAD,
+                        on_click=export_csv,
+                        style=ft.ButtonStyle(
+                            bgcolor=C.ACCENT,
+                            color="#000000",
+                            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, size=12),
+                        ),
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Container(
+                content=ft.Row([readings_table], scroll=ft.ScrollMode.AUTO),
+                border=ft.Border.all(1, ft.Colors.with_opacity(0.15, C.ACCENT2)),
+                border_radius=8,
+                padding=4,
+                bgcolor=ft.Colors.with_opacity(0.03, C.ACCENT2),
+            ),
+            ft.Container(height=8),
         ],
-        expand=True,
+        scroll=ft.ScrollMode.AUTO,
         spacing=12,
     )
 
@@ -365,17 +605,59 @@ def main(page: ft.Page):
         while session["dashboard_refresh"] and session["token"]:
             await asyncio.sleep(5)
             if session["tab"] == 0 and session["token"]:
-                load_dashboard()
+                await asyncio.to_thread(load_dashboard)
 
-    # ── Devices (paginated CRUD) ───────────────────────────────────────
+    # -- Devices --
     current_page = [1]
     total_pages = [1]
+    search_hovered = [False]
     search_field = ft.TextField(
         label="Search devices",
         prefix_icon=ft.Icons.SEARCH,
         expand=True,
         content_padding=ft.Padding.symmetric(horizontal=16, vertical=18),
     )
+
+    def on_search_hover(e) -> None:
+        search_hovered[0] = e.data == "true"
+        update_search_border()
+
+    search_container = ft.Container(
+        content=ft.Row(
+            [
+                search_field,
+                ft.IconButton(
+                    icon=ft.Icons.TUNE,
+                    tooltip="Filter options",
+                    icon_color=ft.Colors.GREY_400,
+                    on_click=lambda e: show_snack("Filter options coming soon"),
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.REFRESH,
+                    tooltip="Refresh",
+                    icon_color=ft.Colors.GREY_400,
+                    on_click=lambda e: load_devices_table(),
+                ),
+            ],
+            spacing=4,
+        ),
+        border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        border_radius=8,
+        padding=ft.Padding.only(left=4, right=4, top=2, bottom=2),
+        bgcolor=ft.Colors.SURFACE,
+        animate=ft.Animation(200, ft.AnimationCurve.EASE_IN_OUT),
+        on_hover=on_search_hover,
+    )
+
+    def update_search_border() -> None:
+        if search_hovered[0]:
+            search_container.border = ft.Border.all(2, ft.Colors.BLUE_400)
+            search_container.bgcolor = ft.Colors.SURFACE_CONTAINER
+        else:
+            search_container.border = ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+            search_container.bgcolor = ft.Colors.SURFACE
+        search_container.update()
+
     sort_dropdown = ft.Dropdown(
         label="Sort by",
         width=150,
@@ -401,12 +683,12 @@ def main(page: ft.Page):
     pager_row = ft.Row(alignment=ft.MainAxisAlignment.CENTER, spacing=4)
     devices_table = ft.DataTable(
         columns=[
-            ft.DataColumn(ft.Text("ID")),
-            ft.DataColumn(ft.Text("Device ID")),
-            ft.DataColumn(ft.Text("Model")),
-            ft.DataColumn(ft.Text("Status")),
-            ft.DataColumn(ft.Text("Room")),
-            ft.DataColumn(ft.Text("Actions")),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.TAG, size=14, color=ft.Colors.GREY_500), ft.Text("ID")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.DEVICES, size=14, color=ft.Colors.GREY_500), ft.Text("Device ID")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.MEMORY, size=14, color=ft.Colors.GREY_500), ft.Text("Model")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.CIRCLE, size=14, color=ft.Colors.GREY_500), ft.Text("Status")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.MEETING_ROOM, size=14, color=ft.Colors.GREY_500), ft.Text("Room")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.BUILD, size=14, color=ft.Colors.GREY_500), ft.Text("Actions")], spacing=4)),
         ],
         rows=[],
     )
@@ -428,6 +710,11 @@ def main(page: ft.Page):
             controls.append(
                 ft.TextButton(
                     str(n),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.BLUE_800 if n == cp else None,
+                        color=ft.Colors.WHITE if n == cp else None,
+                        shape=ft.RoundedRectangleBorder(radius=6),
+                    ),
                     on_click=lambda e, num=n: go_to_page(num),
                 )
             )
@@ -460,6 +747,7 @@ def main(page: ft.Page):
             resp.raise_for_status()
             items, total = parse_paginated(resp.json())
             total_pages[0] = max(1, math.ceil(total / PAGE_SIZE))
+            devices_summary_text.value = f"Total: {total} device{'s' if total != 1 else ''}"
 
             _status_color = {
                 "online": ft.Colors.GREEN_400,
@@ -505,9 +793,7 @@ def main(page: ft.Page):
                                     ),
                                 )
                             ),
-                            ft.DataCell(
-                                ft.Text(d.get("room_name") or str(d["room_id"]))
-                            ),
+                            ft.DataCell(ft.Text(d.get("room_name") or str(d["room_id"]))),
                             ft.DataCell(ft.Row(actions, spacing=0)),
                         ]
                     )
@@ -543,7 +829,7 @@ def main(page: ft.Page):
                         )
                     )
             else:
-                counter_text.value = f"Showing {start}–{end} of {total} devices"
+                counter_text.value = f"Showing {start}-{end} of {total} devices"
             rebuild_pager()
         except Exception as ex:  # noqa: BLE001
             show_snack(f"Devices error: {ex}", success=False)
@@ -567,7 +853,7 @@ def main(page: ft.Page):
             ft.dropdown.Option(key="maintenance", text="maintenance"),
         ],
     )
-    f_room = ft.TextField(label="Room ID (1-5)")
+    f_room = ft.TextField(label="Room ID")
 
     def build_device_payload(did, model, status, room):
         if not (did or "").strip():
@@ -589,7 +875,13 @@ def main(page: ft.Page):
 
     def make_edit(device):
         def handler(e):
-            ed_id = ft.TextField(label="Device ID", value=device["device_id"])
+            ed_id = ft.TextField(
+                label="Device ID",
+                value=device["device_id"],
+                read_only=True,
+                hint_text="Device ID cannot be changed",
+                bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.GREY_500),
+            )
             ed_model = ft.TextField(label="Model", value=device["model"])
             ed_status = ft.Dropdown(
                 label="Status",
@@ -713,41 +1005,62 @@ def main(page: ft.Page):
         visible=False,
     )
 
+    devices_summary_text = ft.Text("", size=12, color=C.TEXT2)
     devices_view = ft.Column(
         [
-            ft.Row(
-                [
-                    ft.Icon(ft.Icons.DEVICES, color=ft.Colors.BLUE_400),
-                    ft.Text("Devices", size=16, weight=ft.FontWeight.BOLD),
-                ],
-                spacing=8,
-            ),
-            ft.Container(height=14),
-            search_field,
-            ft.Container(height=16),
-            ft.Row([sort_dropdown, order_dropdown], spacing=12),
-            ft.Container(height=14),
-            counter_text,
-            ft.Container(height=10),
             ft.Container(
                 content=ft.Column(
-                    [ft.Row([devices_table], scroll=ft.ScrollMode.AUTO)],
-                    scroll=ft.ScrollMode.AUTO,
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.DEVICES, color=C.ACCENT2),
+                                ft.Text("Devices", size=16, weight=ft.FontWeight.BOLD, color=C.TEXT),
+                                ft.Container(expand=True),
+                                devices_summary_text,
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Container(height=14),
+                        search_container,
+                        ft.Container(height=16),
+                        ft.Row([sort_dropdown, order_dropdown], spacing=12),
+                        ft.Container(height=14),
+                        counter_text,
+                        ft.Container(height=10),
+                        ft.Container(
+                            content=ft.Column(
+                                [ft.Row([devices_table], scroll=ft.ScrollMode.AUTO)],
+                                scroll=ft.ScrollMode.AUTO,
+                            ),
+                            height=320,
+                            border=ft.Border.all(1, ft.Colors.with_opacity(0.3, C.TEXT2)),
+                            border_radius=8,
+                            padding=6,
+                            bgcolor=C.CARD,
+                        ),
+                        ft.Container(height=10),
+                        pager_row,
+                        ft.Container(
+                            content=add_device_form,
+                            border=ft.Border.all(1, ft.Colors.with_opacity(0.3, C.ACCENT2)),
+                            border_radius=8,
+                            padding=12,
+                            bgcolor=C.CARD,
+                        ),
+                    ],
+                    spacing=0,
                 ),
-                height=320,
-                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=8,
-                padding=6,
+                padding=16,
+                border=ft.Border.all(1, ft.Colors.with_opacity(0.2, C.TEXT2)),
+                border_radius=12,
+                bgcolor=C.BG2,
             ),
-            ft.Container(height=10),
-            pager_row,
-            add_device_form,
         ],
         scroll=ft.ScrollMode.AUTO,
         spacing=0,
     )
 
-    # ── Alerts ─────────────────────────────────────────────────────────
+    # -- Alerts --
     alert_filter = ft.Dropdown(
         label="Filter",
         width=180,
@@ -755,21 +1068,50 @@ def main(page: ft.Page):
         options=[
             ft.dropdown.Option(key="all", text="All"),
             ft.dropdown.Option(key="0", text="Unacknowledged"),
-            ft.dropdown.Option(key="1", text="Acknowledged"),
+            ft.dropdown.Option(key="1", text="Remediated"),
         ],
     )
     alerts_table = ft.DataTable(
         columns=[
-            ft.DataColumn(ft.Text("ID")),
-            ft.DataColumn(ft.Text("Device")),
-            ft.DataColumn(ft.Text("Type")),
-            ft.DataColumn(ft.Text("Value")),
-            ft.DataColumn(ft.Text("Threshold")),
-            ft.DataColumn(ft.Text("Time")),
-            ft.DataColumn(ft.Text("")),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.TAG, size=14, color=ft.Colors.GREY_500), ft.Text("ID")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.DEVICES, size=14, color=ft.Colors.GREY_500), ft.Text("Device")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.CATEGORY, size=14, color=ft.Colors.GREY_500), ft.Text("Type")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.SPEED, size=14, color=ft.Colors.GREY_500), ft.Text("Value")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.STRAIGHTEN, size=14, color=ft.Colors.GREY_500), ft.Text("Threshold")], spacing=4)),
+            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.SCHEDULE, size=14, color=ft.Colors.GREY_500), ft.Text("Time")], spacing=4)),
+            ft.DataColumn(ft.Text("Action")),
         ],
         rows=[],
     )
+
+    def _alert_row_color(value: float, threshold: float, acknowledged: bool) -> dict:
+        if acknowledged:
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.12, ft.Colors.GREEN_400)}
+        if threshold <= 0:
+            return {}
+        ratio = value / threshold
+        if ratio >= 1.5:
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.50, ft.Colors.RED_400)}
+        if ratio >= 1.2:
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.45, ft.Colors.ORANGE_400)}
+        return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.30, ft.Colors.YELLOW_600)}
+
+    def _severity_badge(value: float, threshold: float) -> ft.Container:
+        if threshold <= 0:
+            return ft.Container()
+        ratio = value / threshold
+        if ratio >= 1.5:
+            label, color = "HIGH", C.RED
+        elif ratio >= 1.2:
+            label, color = "MED", "#EA580C"
+        else:
+            label, color = "LOW", "#CA8A04"
+        return ft.Container(
+            content=ft.Text(label, size=9, weight=ft.FontWeight.BOLD, color=color),
+            padding=ft.Padding.symmetric(horizontal=5, vertical=2),
+            border_radius=4,
+            border=ft.Border.all(1, color),
+        )
 
     def load_alerts(e=None) -> None:
         params: dict = {"limit": 50, "offset": 0}
@@ -784,6 +1126,15 @@ def main(page: ft.Page):
             )
             resp.raise_for_status()
             items, _ = parse_paginated(resp.json())
+            total_alerts = len(items)
+            n_remediated = sum(1 for x in items if x.get("acknowledged"))
+            n_open = total_alerts - n_remediated
+            if alert_filter.value == "all":
+                alerts_summary_text.value = f"Total: {total_alerts}  |  Open: {n_open}  |  Remediated: {n_remediated}"
+            elif alert_filter.value == "0":
+                alerts_summary_text.value = f"Open: {total_alerts}"
+            else:
+                alerts_summary_text.value = f"Remediated: {total_alerts}"
 
             def ack_click(aid):
                 def h(e):
@@ -793,34 +1144,62 @@ def main(page: ft.Page):
                         timeout=5,
                     )
                     if r.status_code == 200:
-                        show_snack("Alert acknowledged")
+                        show_snack("Alert remediated")
                         load_alerts()
                     else:
-                        show_snack("Acknowledge failed", success=False)
-
+                        show_snack("Remediate failed", success=False)
                 return h
 
             rows = []
             for a in items:
-                ack_btn = ft.IconButton(
-                    icon=ft.Icons.CHECK_CIRCLE,
-                    tooltip="Acknowledge",
-                    disabled=bool(a["acknowledged"]),
-                    on_click=ack_click(a["alert_id"]),
-                )
+                is_acked = bool(a["acknowledged"])
+                val = float(a["value"])
+                thr = float(a["threshold"])
+
+                if is_acked:
+                    action_cell = ft.Row(
+                        [
+                            ft.Icon(ft.Icons.CHECK_CIRCLE, color=C.GREEN, size=16),
+                            ft.Text("Remediated", size=12, color=C.GREEN),
+                        ],
+                        spacing=4,
+                        tight=True,
+                    )
+                else:
+                    action_cell = ft.FilledTonalButton(
+                        "Remediate",
+                        icon=ft.Icons.HEALING,
+                        on_click=ack_click(a["alert_id"]),
+                        style=ft.ButtonStyle(
+                            bgcolor={
+                                ft.ControlState.DEFAULT: ft.Colors.GREEN_800,
+                                ft.ControlState.HOVERED: ft.Colors.GREEN_600,
+                            },
+                            color=ft.Colors.WHITE,
+                            text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                        ),
+                    )
+
                 rows.append(
                     ft.DataRow(
+                        color=_alert_row_color(val, thr, is_acked),
                         cells=[
                             ft.DataCell(ft.Text(str(a["alert_id"]))),
-                            ft.DataCell(ft.Text(a["device_id"])),
-                            ft.DataCell(ft.Text(a["alert_type"])),
-                            ft.DataCell(ft.Text(str(a["value"]))),
-                            ft.DataCell(ft.Text(str(a["threshold"]))),
-                            ft.DataCell(ft.Text(a["timestamp"] or "")),
-                            ft.DataCell(ack_btn),
+                            ft.DataCell(ft.Text(a["device_id"], weight=ft.FontWeight.W_500)),
+                            ft.DataCell(
+                                ft.Row(
+                                    [_severity_badge(val, thr), ft.Text(a["alert_type"].upper(), size=12)],
+                                    spacing=6, tight=True,
+                                )
+                            ),
+                            ft.DataCell(ft.Text(str(val))),
+                            ft.DataCell(ft.Text(str(thr))),
+                            ft.DataCell(ft.Text(a["timestamp"] or "", size=12)),
+                            ft.DataCell(action_cell),
                         ]
                     )
                 )
+
             if not items:
                 alerts_table.rows.clear()
                 alerts_table.rows.append(
@@ -860,39 +1239,82 @@ def main(page: ft.Page):
 
     alert_filter.on_select = load_alerts
 
+    alerts_summary_text = ft.Text("", size=12, color=C.RED)
     alerts_view = ft.Column(
         [
-            ft.Row(
-                [
-                    ft.Icon(ft.Icons.WARNING_AMBER, color=ft.Colors.ORANGE_400),
-                    ft.Text("Alerts", size=16, weight=ft.FontWeight.BOLD),
-                ],
-                spacing=8,
-            ),
-            ft.Container(height=14),
-            alert_filter,
-            ft.Container(height=14),
             ft.Container(
                 content=ft.Column(
-                    [ft.Row([alerts_table], scroll=ft.ScrollMode.AUTO)],
-                    scroll=ft.ScrollMode.AUTO,
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.WARNING_AMBER, color=C.RED, size=24),
+                                ft.Text("Alerts", size=22, weight=ft.FontWeight.BOLD, color=C.TEXT),
+                                ft.Container(expand=True),
+                                alerts_summary_text,
+                            ],
+                            spacing=10,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Container(height=14),
+                        ft.Row(
+                            [
+                                ft.Row([ft.Container(width=12, height=12, bgcolor=C.RED, border_radius=3),
+                                        ft.Text("HIGH (>=1.5x)", size=12, color=C.TEXT2)], spacing=5),
+                                ft.Row([ft.Container(width=12, height=12, bgcolor="#EA580C", border_radius=3),
+                                        ft.Text("MED (>=1.2x)", size=12, color=C.TEXT2)], spacing=5),
+                                ft.Row([ft.Container(width=12, height=12, bgcolor="#CA8A04", border_radius=3),
+                                        ft.Text("LOW (>threshold)", size=12, color=C.TEXT2)], spacing=5),
+                                ft.Row([ft.Container(width=12, height=12, bgcolor=C.GREEN, border_radius=3),
+                                        ft.Text("Remediated", size=12, color=C.TEXT2)], spacing=5),
+                            ],
+                            spacing=20,
+                        ),
+                        ft.Container(height=16),
+                        alert_filter,
+                        ft.Container(height=14),
+                        ft.Container(
+                            content=ft.Column(
+                                [ft.Row([alerts_table], scroll=ft.ScrollMode.AUTO)],
+                                scroll=ft.ScrollMode.AUTO,
+                            ),
+                            height=420,
+                            border=ft.Border.all(1, ft.Colors.with_opacity(0.3, C.RED)),
+                            border_radius=8,
+                            padding=8,
+                            bgcolor=C.CARD,
+                        ),
+                    ],
+                    spacing=0,
                 ),
-                height=400,
-                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=8,
-                padding=6,
+                padding=20,
+                border=ft.Border.all(1, ft.Colors.with_opacity(0.2, C.RED)),
+                border_radius=12,
+                bgcolor=C.BG2,
             ),
         ],
         scroll=ft.ScrollMode.AUTO,
         spacing=0,
     )
 
-    # ── Settings (admin) ───────────────────────────────────────────────
+    # -- Settings (admin) --
     settings_device_dd = ft.Dropdown(label="Device", width=300, options=[])
     settings_pm25 = ft.TextField(label="PM2.5 threshold", value="35")
-    settings_co2 = ft.TextField(label="CO₂ threshold", value="1000")
+    settings_co2 = ft.TextField(label="CO2 threshold", value="1000")
+
+    sys_info_api = ft.Text("Checking...", size=12)
+    sys_info_db = ft.Text("--", size=12)
 
     def load_settings_devices() -> None:
+        ok, _ = check_api()
+        sys_info_api.value = "Online" if ok else "Offline"
+        try:
+            resp = requests.get(f"{API_BASE_URL}/health", headers=headers(), timeout=5)
+            if resp.status_code == 200:
+                h = resp.json()
+                db = h.get("database_size", h.get("db_size", "--"))
+                sys_info_db.value = str(db)
+        except Exception:  # noqa: BLE001
+            pass
         try:
             resp = requests.get(
                 f"{API_BASE_URL}/devices",
@@ -915,6 +1337,7 @@ def main(page: ft.Page):
                 settings_co2.value = str(items[0].get("co2_threshold", 1000))
         except Exception as ex:  # noqa: BLE001
             show_snack(f"Settings load error: {ex}", success=False)
+        page.update()
 
     def on_settings_device_pick(e) -> None:
         did = settings_device_dd.value
@@ -958,65 +1381,67 @@ def main(page: ft.Page):
         else:
             show_snack(str(resp.json().get("detail", resp.text)), success=False)
 
-    def export_csv(e) -> None:
-        try:
-            resp = requests.get(
-                f"{API_BASE_URL}/export/readings",
-                headers=headers(),
-                timeout=30,
-            )
-            resp.raise_for_status()
-            out = Path.home() / "Downloads" / "readings_export.csv"
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(resp.content)
-            show_snack(f"Saved to {out}")
-        except Exception as ex:  # noqa: BLE001
-            show_snack(f"Export failed: {ex}", success=False)
-
     settings_view = ft.Column(
         [
-            ft.Row(
-                [
-                    ft.Icon(ft.Icons.SETTINGS, color=ft.Colors.TEAL_400),
-                    ft.Text("Settings", size=16, weight=ft.FontWeight.BOLD),
-                ],
-                spacing=8,
-            ),
-            ft.Container(height=10),
-            ft.Text("Threshold configuration", size=15, weight=ft.FontWeight.W_500),
-            ft.Container(height=6),
-            settings_device_dd,
-            ft.Container(height=8),
-            settings_pm25,
-            ft.Container(height=8),
-            settings_co2,
-            ft.Container(height=14),
-            ft.FilledButton(
-                "Save thresholds",
-                icon=ft.Icons.SAVE,
-                on_click=save_thresholds,
-                style=ft.ButtonStyle(
-                    bgcolor=ft.Colors.TEAL_700,
-                    color=ft.Colors.WHITE,
-                    text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+            ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.SETTINGS, color=C.ACCENT2),
+                                ft.Text("Settings", size=16, weight=ft.FontWeight.BOLD, color=C.TEXT),
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Container(height=14),
+                        ft.Text("Threshold configuration", size=15, weight=ft.FontWeight.W_500, color=C.TEXT),
+                        ft.Container(height=14),
+                        settings_device_dd,
+                        ft.Container(height=16),
+                        settings_pm25,
+                        ft.Container(height=16),
+                        settings_co2,
+                        ft.Container(height=20),
+                        ft.FilledButton(
+                            "Save thresholds",
+                            icon=ft.Icons.SAVE,
+                            on_click=save_thresholds,
+                            style=ft.ButtonStyle(
+                                bgcolor=C.ACCENT,
+                                color="#000000",
+                                text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                            ),
+                            width=220,
+                        ),
+                        ft.Container(height=20),
+                        ft.Divider(color=ft.Colors.with_opacity(0.2, C.TEXT2)),
+                        ft.Container(height=14),
+                        ft.Text("System info", size=15, weight=ft.FontWeight.W_500, color=C.TEXT),
+                        ft.Container(height=10),
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Row([ft.Text("API status:", size=12, color=C.TEXT2), sys_info_api]),
+                                    ft.Row([ft.Text("Database size:", size=12, color=C.TEXT2), sys_info_db]),
+                                    ft.Row([ft.Text("Application version:", size=12, color=C.TEXT2),
+                                            ft.Text("1.0.0", size=12)]),
+                                    ft.Row([ft.Text("Flet version:", size=12, color=C.TEXT2),
+                                            ft.Text(ft.__version__, size=12)]),
+                                ],
+                                spacing=10,
+                            ),
+                            padding=14,
+                            border=ft.Border.all(1, ft.Colors.with_opacity(0.3, C.TEXT2)),
+                            border_radius=8,
+                            bgcolor=C.CARD,
+                        ),
+                    ],
+                    spacing=0,
                 ),
-                width=220,
-            ),
-            ft.Container(height=10),
-            ft.Divider(),
-            ft.Container(height=10),
-            ft.Text("Export data", size=15, weight=ft.FontWeight.W_500),
-            ft.Container(height=6),
-            ft.FilledButton(
-                "Export readings CSV",
-                icon=ft.Icons.DOWNLOAD,
-                on_click=export_csv,
-                style=ft.ButtonStyle(
-                    bgcolor=ft.Colors.BLUE_GREY_700,
-                    color=ft.Colors.WHITE,
-                    text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
-                ),
-                width=240,
+                padding=16,
+                border=ft.Border.all(1, ft.Colors.with_opacity(0.2, C.TEXT2)),
+                border_radius=12,
+                bgcolor=C.BG2,
             ),
         ],
         spacing=0,
@@ -1024,17 +1449,19 @@ def main(page: ft.Page):
         expand=True,
     )
 
-    # ── Bottom sheet: quick add reading ────────────────────────────────
+    # -- Bottom sheet: quick add reading --
     bs_device = ft.Dropdown(label="Device", options=[])
     bs_pm25 = ft.TextField(label="PM2.5")
-    bs_co2 = ft.TextField(label="CO₂")
+    bs_co2 = ft.TextField(label="CO2")
 
     def open_reading_sheet(e=None) -> None:
+        bs_pm25.value = ""
+        bs_co2.value = ""
         try:
             resp = requests.get(
                 f"{API_BASE_URL}/devices",
                 headers=headers(),
-                params={"limit": 20, "offset": 0},
+                params={"limit": 100, "offset": 0},
                 timeout=5,
             )
             resp.raise_for_status()
@@ -1054,7 +1481,7 @@ def main(page: ft.Page):
                 pm = float(bs_pm25.value)
                 co = float(bs_co2.value)
             except (TypeError, ValueError):
-                show_snack("PM2.5 and CO₂ must be numbers", success=False)
+                show_snack("PM2.5 and CO2 must be numbers", success=False)
                 return
             if not bs_device.value:
                 show_snack("Select a device", success=False)
@@ -1078,7 +1505,7 @@ def main(page: ft.Page):
 
         sheet = ft.BottomSheet(
             ft.Container(
-                ft.Column(
+                content=ft.Column(
                     [
                         ft.Text("Quick add reading", size=18, weight=ft.FontWeight.BOLD),
                         bs_device,
@@ -1092,17 +1519,17 @@ def main(page: ft.Page):
                         ),
                     ],
                     spacing=10,
-                    padding=20,
                 ),
+                padding=20,
                 width=400,
             ),
             open=True,
         )
         page.show_dialog(sheet)
 
-    # ── Shell: AppBar, MenuBar, nav, body ──────────────────────────────
+    # -- Shell --
     body = ft.Container(
-        padding=ft.Padding.only(left=24, top=16, right=16, bottom=16),
+        padding=ft.Padding.only(left=32, top=16, right=24, bottom=16),
         expand=True,
         bgcolor=ft.Colors.SURFACE_CONTAINER,
     )
@@ -1133,33 +1560,65 @@ def main(page: ft.Page):
         login_pass.value = ""
         show_login_view()
 
-    def build_menubar() -> ft.MenuBar:
-        file_items = [
-            ft.MenuItemButton(
-                content=ft.Text("Export readings CSV"),
-                on_click=export_csv,
-            ),
-        ]
-        view_items = [
-            ft.MenuItemButton(
-                content=ft.Text("Refresh"),
-                on_click=lambda e: refresh_current_tab(),
-            ),
-        ]
-        menus = [
-            ft.SubmenuButton(content=ft.Text("File"), controls=file_items),
-            ft.SubmenuButton(content=ft.Text("View"), controls=view_items),
-        ]
-        return ft.MenuBar(controls=menus)
+    _nav_ref: list[ft.Container | None] = [None]
+    _nav_items_data: list = []
 
-    def on_nav_change(e) -> None:
-        idx = e.control.selected_index
+    def build_nav():
+        sel = session["tab"]
+        items = []
+        for nd in _nav_items_data:
+            active = nd["idx"] == sel
+            items.append(
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Icon(
+                                    nd["icon"],
+                                    size=18,
+                                    color="#0B1220" if active else C.TEXT2,
+                                ),
+                                width=34,
+                                height=34,
+                                border_radius=ft.BorderRadius.all(8),
+                                bgcolor=C.ACCENT if active else ft.Colors.with_opacity(0.08, C.TEXT2),
+                                alignment=ft.Alignment(0, 0),
+                            ),
+                            ft.Container(width=10),
+                            ft.Text(
+                                nd["label"],
+                                size=14,
+                                color=C.TEXT if active else C.TEXT2,
+                                weight=ft.FontWeight.W_600 if active else ft.FontWeight.NORMAL,
+                            ),
+                            ft.Container(expand=True),
+                            ft.Container(
+                                width=4,
+                                height=20,
+                                border_radius=ft.BorderRadius.all(2),
+                                bgcolor=C.ACCENT if active else ft.Colors.TRANSPARENT,
+                            ),
+                        ],
+                        spacing=0,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=ft.Padding.symmetric(horizontal=10, vertical=10),
+                    border_radius=ft.BorderRadius.all(12),
+                    margin=ft.Margin.symmetric(horizontal=10, vertical=3),
+                    bgcolor=ft.Colors.with_opacity(0.12, C.ACCENT) if active else None,
+                    on_click=lambda e, idx=nd["idx"]: on_nav_click(idx),
+                    ink=True,
+                )
+            )
+        return ft.Column(items, spacing=0)
+
+    def on_nav_click(idx: int) -> None:
         session["tab"] = idx
         if is_admin():
             body.content = VIEWS[idx]
         else:
             body.content = VIEWS[idx if idx < 3 else 0]
-        if idx == 0 or (not is_admin() and idx == 0):
+        if idx == 0:
             load_dashboard()
         elif idx == 1:
             load_devices_table()
@@ -1168,80 +1627,210 @@ def main(page: ft.Page):
             load_alerts()
         elif idx == 3 and is_admin():
             load_settings_devices()
-        page.appbar.title = ft.Text(TITLES[idx if is_admin() else min(idx, 2)])
+        nav = _nav_ref[0]
+        if nav:
+            nav.content.controls[3] = build_nav()
         page.update()
 
     def show_main_shell() -> None:
         page.controls.clear()
+        page.appbar = None
+        page.navigation_bar = None
+        page.bottom_appbar = None
         add_device_form.visible = is_admin()
 
-        destinations = [
-            ft.NavigationBarDestination(icon=ft.Icons.DASHBOARD, label="Dashboard"),
-            ft.NavigationBarDestination(icon=ft.Icons.DEVICES, label="Devices"),
-            ft.NavigationBarDestination(icon=ft.Icons.WARNING, label="Alerts"),
-        ]
+        _nav_items_data.clear()
+        _nav_items_data.extend([
+            {"icon": ft.Icons.DASHBOARD, "label": "Dashboard", "idx": 0},
+            {"icon": ft.Icons.DEVICES, "label": "Devices", "idx": 1},
+            {"icon": ft.Icons.WARNING_AMBER, "label": "Alerts", "idx": 2},
+        ])
         if is_admin():
-            destinations.append(
-                ft.NavigationBarDestination(icon=ft.Icons.SETTINGS, label="Settings")
-            )
+            _nav_items_data.append({"icon": ft.Icons.SETTINGS, "label": "Settings", "idx": 3})
 
-        page.appbar = ft.AppBar(
-            leading=ft.Icon(ft.Icons.AIR, color=ft.Colors.BLUE_300),
-            leading_width=44,
-            title=ft.Text("Dashboard"),
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            actions=[
-                ft.Container(
-                    content=ft.Row(
-                        [
-                            ft.Icon(ft.Icons.PERSON, size=14, color=ft.Colors.ON_SURFACE_VARIANT),
-                            ft.Text(
-                                f"{session['username']}  ·  {session['role']}",
-                                size=12,
-                                color=ft.Colors.ON_SURFACE_VARIANT,
-                            ),
-                        ],
-                        spacing=4,
-                    ),
-                    padding=ft.Padding.only(right=4),
-                ),
-                ft.IconButton(
-                    icon=ft.Icons.LOGOUT,
-                    tooltip="Logout",
-                    on_click=do_logout,
-                ),
-            ],
-        )
-        page.navigation_bar = ft.NavigationBar(
-            destinations=destinations,
-            on_change=on_nav_change,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            indicator_color=ft.Colors.BLUE_800,
-            label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_SHOW,
-        )
-        page.bottom_appbar = ft.BottomAppBar(
-            bgcolor=ft.Colors.INDIGO_900,
-            content=ft.Row(
+        role_color = C.ACCENT if is_admin() else C.ACCENT2
+        role_label = (session.get("role") or "user").upper()
+        username_display = session.get("username") or "User"
+        initials = username_display[:2].upper()
+
+        nav_sidebar = ft.Container(
+            content=ft.Column(
                 [
-                    ft.IconButton(
-                        icon=ft.Icons.REFRESH,
-                        icon_color=ft.Colors.INDIGO_100,
-                        tooltip="Refresh",
-                        on_click=lambda e: refresh_current_tab(),
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Container(
+                                    content=ft.Icon(ft.Icons.AIR, color="#0B1220", size=22),
+                                    width=40,
+                                    height=40,
+                                    border_radius=ft.BorderRadius.all(10),
+                                    bgcolor=C.ACCENT,
+                                    alignment=ft.Alignment(0, 0),
+                                ),
+                                ft.Container(width=10),
+                                ft.Column(
+                                    [
+                                        ft.Text("AirQuality", size=14, weight=ft.FontWeight.BOLD, color=C.TEXT),
+                                        ft.Text("Monitor", size=10, color=C.ACCENT, weight=ft.FontWeight.W_500),
+                                    ],
+                                    spacing=0,
+                                ),
+                            ],
+                            spacing=0,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        padding=ft.Padding.only(left=14, top=20, bottom=16, right=14),
                     ),
-                    ft.IconButton(
-                        icon=ft.Icons.ADD_CHART,
-                        icon_color=ft.Colors.INDIGO_100,
-                        tooltip="Add reading",
-                        on_click=open_reading_sheet,
+                    ft.Container(
+                        height=1,
+                        bgcolor=ft.Colors.with_opacity(0.15, C.TEXT2),
+                        margin=ft.Margin.symmetric(horizontal=10, vertical=0),
+                    ),
+                    ft.Container(height=10),
+                    build_nav(),
+                    ft.Container(expand=True),
+                    ft.Container(
+                        height=1,
+                        bgcolor=ft.Colors.with_opacity(0.15, C.TEXT2),
+                        margin=ft.Margin.symmetric(horizontal=10, vertical=0),
+                    ),
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Container(
+                                    content=ft.Text(initials, size=12, weight=ft.FontWeight.BOLD, color="#0B1220"),
+                                    width=32,
+                                    height=32,
+                                    border_radius=ft.BorderRadius.all(16),
+                                    bgcolor=role_color,
+                                    alignment=ft.Alignment(0, 0),
+                                ),
+                                ft.Container(width=8),
+                                ft.Column(
+                                    [
+                                        ft.Text(username_display, size=12, weight=ft.FontWeight.W_600, color=C.TEXT),
+                                        ft.Container(
+                                            content=ft.Text(role_label, size=9, weight=ft.FontWeight.BOLD, color="#0B1220"),
+                                            padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                                            border_radius=ft.BorderRadius.all(4),
+                                            bgcolor=role_color,
+                                        ),
+                                    ],
+                                    spacing=3,
+                                ),
+                                ft.Container(expand=True),
+                                ft.IconButton(
+                                    icon=ft.Icons.LOGOUT,
+                                    tooltip="Logout",
+                                    icon_color=C.TEXT2,
+                                    icon_size=18,
+                                    on_click=do_logout,
+                                ),
+                            ],
+                            spacing=0,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=12),
                     ),
                 ],
-                alignment=ft.MainAxisAlignment.END,
+                spacing=0,
+                expand=True,
             ),
+            width=220,
+            bgcolor=C.NAV,
         )
+        _nav_ref[0] = nav_sidebar
+
+        top_bar = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.AIR, color=C.ACCENT, size=22),
+                            ft.Container(width=10),
+                            ft.Column(
+                                [
+                                    ft.Text("FreshX", size=16, weight=ft.FontWeight.BOLD, color=C.ACCENT),
+                                    ft.Text("Clean Air, Clear Mind", size=10, color=C.TEXT2),
+                                ],
+                                spacing=0,
+                            ),
+                        ],
+                        spacing=0,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    ft.Container(expand=True),
+                    ft.Row(
+                        [
+                            ft.Container(
+                                content=ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.CIRCLE, size=8, color=C.GREEN),
+                                        ft.Container(width=4),
+                                        ft.Text("Live", size=11, color=C.GREEN, weight=ft.FontWeight.W_600),
+                                    ],
+                                    spacing=0,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                ),
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                                border_radius=ft.BorderRadius.all(20),
+                                bgcolor=ft.Colors.with_opacity(0.12, C.GREEN),
+                            ),
+                            ft.Container(width=10),
+                            ft.IconButton(
+                                icon=ft.Icons.REFRESH_ROUNDED,
+                                tooltip="Refresh",
+                                icon_color=C.TEXT2,
+                                icon_size=18,
+                                on_click=lambda e: refresh_current_tab(),
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.ADD_CHART_ROUNDED,
+                                tooltip="Quick add reading",
+                                icon_color=C.ACCENT,
+                                icon_size=18,
+                                on_click=open_reading_sheet,
+                            ),
+                        ],
+                        spacing=0,
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=12),
+            bgcolor=C.BG2,
+            border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.15, C.TEXT2))),
+        )
+
+        footer = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Text("2026 Team. All Rights Reserved.", size=11, color=ft.Colors.with_opacity(0.5, C.TEXT2)),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding.symmetric(vertical=10),
+            bgcolor=C.FOOTER,
+            border=ft.Border(top=ft.BorderSide(1, ft.Colors.with_opacity(0.2, C.TEXT2))),
+        )
+
         body.content = dashboard_view
         session["tab"] = 0
-        page.add(ft.Column([build_menubar(), body], expand=True))
+        page.add(
+            ft.Row(
+                [
+                    nav_sidebar,
+                    ft.VerticalDivider(width=1, color=ft.Colors.with_opacity(0.2, C.TEXT2)),
+                    ft.Column(
+                        [top_bar, body, footer],
+                        expand=True,
+                        spacing=0,
+                    ),
+                ],
+                expand=True,
+                spacing=0,
+            )
+        )
         load_dashboard()
         session["dashboard_refresh"] = True
         page.run_task(dashboard_refresh_loop)
@@ -1250,7 +1839,7 @@ def main(page: ft.Page):
     ok, _ = check_api()
     page.add(login_view)
     if not ok:
-        show_snack("API not running — start uvicorn, then sign in", success=False)
+        show_snack("API not running - start uvicorn, then sign in", success=False)
 
 
 if __name__ == "__main__":
