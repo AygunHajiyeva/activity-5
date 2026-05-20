@@ -1,4 +1,4 @@
-"""Background IoT simulator — POSTs random readings every 5–10 seconds."""
+"""Background IoT simulator — POSTs random readings every 4–7 seconds."""
 
 import random
 import time
@@ -32,21 +32,38 @@ def fetch_device_ids(token: str) -> list[str]:
     return [d["device_id"] for d in resp.json()["items"]]
 
 
+def post_reading(token: str, payload: dict) -> requests.Response:
+    return requests.post(
+        f"{API_BASE_URL}/readings",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+
+
 def main() -> None:
     print(f"Simulator → {API_BASE_URL}")
-    token = login()
+
+    # Keep trying to connect until the API is up
+    token = None
+    while token is None:
+        try:
+            token = login()
+        except requests.RequestException as ex:
+            print(f"API not ready, retrying in 5s… ({ex})")
+            time.sleep(5)
+
     device_ids = fetch_device_ids(token)
     if not device_ids:
         print("No devices found. Run: py seed.py")
         return
 
     print(f"Sending readings for {len(device_ids)} devices. Ctrl+C to stop.")
-    headers = {"Authorization": f"Bearer {token}"}
 
     while True:
         device_id = random.choice(device_ids)
         # Bias toward threshold-exceeding values so alerts fire reliably
-        pm25 = round(random.uniform(36, 72), 1)   # always > 35 threshold
+        pm25 = round(random.uniform(36, 72), 1)    # always > 35 threshold
         co2 = round(random.uniform(1010, 1500), 0)  # always > 1000 threshold
         payload = {
             "device_id": device_id,
@@ -55,19 +72,28 @@ def main() -> None:
             "temperature": round(random.uniform(19, 25), 1),
             "humidity": round(random.uniform(35, 55), 1),
         }
+
         try:
-            resp = requests.post(
-                f"{API_BASE_URL}/readings",
-                json=payload,
-                headers=headers,
-                timeout=10,
-            )
+            resp = post_reading(token, payload)
+
             if resp.status_code == 201:
-                print(f"POST {device_id} pm25={pm25} co2={co2}")
+                print(f"  OK  {device_id}  pm25={pm25}  co2={co2}")
+
+            elif resp.status_code == 401:
+                # Token expired or API restarted — re-login and retry once
+                print("Token expired, re-logging in…")
+                token = login()
+                resp = post_reading(token, payload)
+                if resp.status_code == 201:
+                    print(f"  OK  {device_id}  pm25={pm25}  co2={co2}  (after re-login)")
+                else:
+                    print(f"  ERR {resp.status_code}: {resp.text}")
+
             else:
-                print(f"Error {resp.status_code}: {resp.text}")
+                print(f"  ERR {resp.status_code}: {resp.text}")
+
         except requests.RequestException as ex:
-            print(f"Request failed: {ex}")
+            print(f"  Request failed: {ex} — retrying after delay")
 
         time.sleep(random.uniform(INTERVAL_MIN, INTERVAL_MAX))
 

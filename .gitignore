@@ -8,3 +8,6 @@ air_quality_project/flet_*.log
 air_quality_project/flet_v2_*.log
 air_quality_project/*.out.log
 air_quality_project/*.err.log
+
+project items/
+.claude/

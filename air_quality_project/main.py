@@ -476,7 +476,8 @@ def main(page: ft.Page):
             )
             r.raise_for_status()
             items, _ = parse_paginated(r.json())
-            readings_table.rows = [
+            readings_table.rows.clear()
+            readings_table.rows.extend([
                 ft.DataRow(
                     cells=[
                         ft.DataCell(ft.Text(str(x["reading_id"]), color=C.TEXT2, size=12)),
@@ -487,7 +488,8 @@ def main(page: ft.Page):
                     ]
                 )
                 for x in items
-            ]
+            ])
+            readings_table.update()
         except Exception as ex:  # noqa: BLE001
             show_snack(f"Dashboard error: {ex}", success=False)
         page.update()
@@ -604,8 +606,16 @@ def main(page: ft.Page):
     async def dashboard_refresh_loop() -> None:
         while session["dashboard_refresh"] and session["token"]:
             await asyncio.sleep(5)
-            if session["tab"] == 0 and session["token"]:
-                await asyncio.to_thread(load_dashboard)
+            if not session["token"]:
+                break
+            try:
+                tab = session["tab"]
+                if tab == 0:
+                    load_dashboard()
+                elif tab == 2:
+                    load_alerts()
+            except Exception:  # noqa: BLE001
+                pass
 
     # -- Devices --
     current_page = [1]
@@ -1086,15 +1096,15 @@ def main(page: ft.Page):
 
     def _alert_row_color(value: float, threshold: float, acknowledged: bool) -> dict:
         if acknowledged:
-            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.12, ft.Colors.GREEN_400)}
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.18, ft.Colors.GREEN_400)}
         if threshold <= 0:
             return {}
         ratio = value / threshold
         if ratio >= 1.5:
-            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.50, ft.Colors.RED_400)}
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.70, ft.Colors.RED_700)}
         if ratio >= 1.2:
-            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.45, ft.Colors.ORANGE_400)}
-        return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.30, ft.Colors.YELLOW_600)}
+            return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.65, ft.Colors.ORANGE_700)}
+        return {ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.25, ft.Colors.YELLOW_400)}
 
     def _severity_badge(value: float, threshold: float) -> ft.Container:
         if threshold <= 0:
